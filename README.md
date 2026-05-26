@@ -65,6 +65,10 @@ AI Kissing Video Generator is a production-ready, highly-optimized AI web applic
 
 This architecture is engineered explicitly for **Vercel** serverless environments.
 
+### One-Click Deploy
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/SamurAIGPT/ai-kissing-video-generator)
+
 ### 🔑 Required Environment Variables
 
 To successfully deploy and run, you must populate the following environment variables in your Vercel project settings:
