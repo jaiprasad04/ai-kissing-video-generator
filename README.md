@@ -1,6 +1,9 @@
-# 💖 AI Kissing Video Generator — Premium AI Romance Video SaaS
+# 💖 AI Kissing Video Generator — Open-Source AI Romance Video SaaS (Powered by Veo 3, Wan 2.7 & Gemini Omni)
 
-> **A beautifully designed, high-contrast AI Kissing Video Generator.** Built with Next.js (App Router), this application is a self-contained SaaS boilerplate for generating photorealistic, romantic kissing videos in seconds. Upload two photos (one male, one female), customize a romantic prompt, select from 4 state-of-the-art AI video generation models, and watch as they lean in and kiss!
+> **Merge two portrait photos into a photorealistic romantic kissing video in seconds.** A production-ready, self-hostable Next.js SaaS boilerplate with multi-model AI video generation (Veo 3, Wan 2.7, Gemini Omni, Grok), webhook-backed async delivery, a personal video gallery, and built-in Stripe billing. Powered by the MuAPI AI engine.
+
+**Tech stack:** Next.js 14 (App Router) · Prisma · PostgreSQL · NextAuth (Google OAuth) · Stripe · Tailwind CSS · MuAPI · Webhook-backed async delivery
+**Use cases:** Romance content creators · Couples apps · Valentine's Day apps · Social media viral videos · AI entertainment · Fun video generators · Creative gifting tools · Short-form video content
 
 ## 🌐 Project Details
 
