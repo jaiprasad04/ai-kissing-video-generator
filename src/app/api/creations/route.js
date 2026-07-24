@@ -16,10 +16,13 @@ export async function GET(req) {
     const { searchParams } = new URL(req.url);
     const requestId = searchParams.get("requestId");
 
+    const headerApiKey = req.headers.get("x-custom-api-key");
+    const customApiKey = headerApiKey || session.user.customApiKey || null;
+
     // If requestId is passed, perform status check/polling fallback
     if (requestId) {
       console.log(`[CREATIONS_API_GET] Checking status for requestId: ${requestId}`);
-      const statusData = await AIService.checkStatus(requestId, session.user.id);
+      const statusData = await AIService.checkStatus(requestId, session.user.id, customApiKey);
       console.log(`[CREATIONS_API_GET] Status result for ${requestId}:`, statusData);
       return NextResponse.json(statusData);
     }
@@ -35,7 +38,7 @@ export async function GET(req) {
       creations.map(async (c) => {
         if (c.status === "processing" && c.requestId) {
           try {
-            await AIService.checkStatus(c.requestId, session.user.id);
+            await AIService.checkStatus(c.requestId, session.user.id, customApiKey);
             const refetched = await prisma.kissingVideoCreation.findUnique({
               where: { id: c.id }
             });
@@ -65,13 +68,8 @@ export async function POST(req) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    // Check credits
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { credits: true }
-    });
-
-    const { maleImage, femaleImage, stitchedImage, prompt, modelId, aspectRatio, duration, resolution } = await req.json();
+    const body = await req.json();
+    const { maleImage, femaleImage, stitchedImage, prompt, modelId, aspectRatio, duration, resolution } = body;
 
     if (!maleImage || !femaleImage || !stitchedImage) {
       return new NextResponse("Missing maleImage, femaleImage or stitchedImage", { status: 400 });
@@ -83,9 +81,20 @@ export async function POST(req) {
       return new NextResponse("Missing modelId", { status: 400 });
     }
 
-    const cost = AIService.getCreditCost(modelId, duration, resolution);
-    if (!user || user.credits < cost) {
-      return new NextResponse(`Insufficient credits. Required: ${cost}, balance: ${user?.credits ?? 0}`, { status: 400 });
+    const headerApiKey = req.headers.get("x-custom-api-key");
+    const customApiKey = headerApiKey || body.customApiKey || session.user.customApiKey || null;
+    const isUsingCustomKey = Boolean(customApiKey && customApiKey.trim().length > 0);
+
+    const cost = isUsingCustomKey ? 0 : AIService.getCreditCost(modelId, duration, resolution);
+
+    if (!isUsingCustomKey) {
+      const user = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { credits: true }
+      });
+      if (!user || user.credits < cost) {
+        return new NextResponse(`Insufficient credits. Required: ${cost}, balance: ${user?.credits ?? 0}`, { status: 400 });
+      }
     }
 
     const creation = await AIService.generate(session.user.id, {
@@ -97,7 +106,7 @@ export async function POST(req) {
       aspectRatio: aspectRatio || "16:9",
       duration,
       resolution
-    });
+    }, customApiKey);
 
     return NextResponse.json(creation);
   } catch (error) {

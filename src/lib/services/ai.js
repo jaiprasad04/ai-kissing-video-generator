@@ -17,7 +17,7 @@ export const AIService = {
   /**
    * Submit an image-to-video task to MuAPI
    */
-  async generate(userId, { maleImage, femaleImage, prompt, modelId, aspectRatio = "16:9", duration, stitchedImage, resolution }) {
+  async generate(userId, { maleImage, femaleImage, prompt, modelId, aspectRatio = "16:9", duration, stitchedImage, resolution }, customApiKey = null) {
     if (!maleImage || !femaleImage) {
       throw new Error("Both male and female images are required.");
     }
@@ -28,11 +28,15 @@ export const AIService = {
     const model = config.ai.models[modelId];
     if (!model) throw new Error(`Invalid model selected: ${modelId}`);
 
-    const cost = this.getCreditCost(modelId, duration, resolution);
-    await UserService.deductCredits(userId, cost);
+    const isUsingCustomKey = Boolean(customApiKey && customApiKey.trim().length > 0);
+    const cost = isUsingCustomKey ? 0 : this.getCreditCost(modelId, duration, resolution);
 
-    const apiKey = config.ai.apiKey;
-    if (!apiKey) throw new Error("MUAPIAPP_API_KEY is not configured");
+    if (!isUsingCustomKey && cost > 0) {
+      await UserService.deductCredits(userId, cost);
+    }
+
+    const apiKey = isUsingCustomKey ? customApiKey.trim() : config.ai.apiKey;
+    if (!apiKey) throw new Error("API Key is not configured");
 
     // Build request payload dynamically based on model schemas
     const bodyPayload = {
@@ -78,14 +82,18 @@ export const AIService = {
 
     if (!submitRes.ok) {
       const errorText = await submitRes.text();
-      // Refund credits on failure before throwing
-      await UserService.addCredits(userId, cost);
+      // Refund credits on failure before throwing if cost was deducted
+      if (!isUsingCustomKey && cost > 0) {
+        await UserService.addCredits(userId, cost);
+      }
       throw new Error(`API Submission Failed: ${submitRes.status} ${errorText}`);
     }
 
     const { request_id } = await submitRes.json();
     if (!request_id) {
-      await UserService.addCredits(userId, cost);
+      if (!isUsingCustomKey && cost > 0) {
+        await UserService.addCredits(userId, cost);
+      }
       throw new Error("No request_id received from API");
     }
 
@@ -155,8 +163,10 @@ export const AIService = {
           error: errorMsg,
         }
       });
-      // Refund credits on failure
-      await UserService.addCredits(creation.userId, creation.creditCost);
+      // Refund credits on failure if creditCost > 0
+      if (creation.creditCost > 0) {
+        await UserService.addCredits(creation.userId, creation.creditCost);
+      }
       return { status: "failed", error: updated.error };
     }
 
@@ -166,13 +176,13 @@ export const AIService = {
   /**
    * Check status of generation (either from database or polling MuAPI API)
    */
-  async checkStatus(requestId, userId) {
+  async checkStatus(requestId, userId, customApiKey = null) {
     // First check if we already have it in DB
     const res = await this.processResult(requestId, {});
     if (res && res.status !== "processing") return res;
 
     // Fallback: poll MuAPI prediction result endpoint
-    const apiKey = config.ai.apiKey;
+    const apiKey = (customApiKey && customApiKey.trim().length > 0) ? customApiKey.trim() : config.ai.apiKey;
     if (!apiKey) throw new Error("API Key is not configured");
 
     try {
